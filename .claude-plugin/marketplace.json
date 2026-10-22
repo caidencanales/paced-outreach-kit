@@ -1,11 +1,15 @@
 {
   "name": "paced-outreach-kit",
-  "owner": { "name": "paced-outreach-kit contributors" },
+  "owner": {
+    "name": "paced-outreach-kit contributors"
+  },
   "plugins": [
     {
       "name": "outreach",
       "source": "./plugins/outreach",
-      "description": "Human-paced, evidence-backed LinkedIn + email outreach: setup interview, founder scouting, paced send sessions, weekly review."
+      "description": "Human-paced, evidence-backed LinkedIn + email outreach: setup interview, founder scouting, paced send sessions, weekly review.",
+      "version": "0.2.0"
     }
-  ]
+  ],
+  "description": "Slow, evidence-backed LinkedIn + email outreach run by Claude Code, with you approving every send."
 }

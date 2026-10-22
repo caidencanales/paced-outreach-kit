@@ -17,10 +17,15 @@ This kit is a rebuild of a working, single-person LinkedIn networking setup: Cla
 | 11 | It only ran from one Windows folder, and hard-coded paths broke in git worktrees. | Nobody else could use it. | Paths are handled by `pathlib`, `OUTREACH_HOME` relocates everything, and setup instructions cover each OS. |
 | 12 | Scores were words ("HIGH", "MEDIUM-HIGH") with no evidence attached. | Not comparable, and not checkable. | Weighted 0-5 signals. Any signal above 0 needs an evidence URL. There's a configurable contact threshold. |
 | 13 | Personal data sat next to code that could be pushed. | Leaks other people's information. | `config.json`, `data/` and `private/` are git-ignored, and `RULES.md` forbids publishing them. |
-| 14 | No tests. | Every change was a guess. | Unit tests cover duplicates, derived status, opt-outs, pacing, breaks, lint and scoring. |
+| 14 | No tests. | Every change was a guess. | Unit tests cover duplicates, derived status, opt-outs, pacing, breaks, research pace, lint, scoring, sources and drafts. |
+| 15 | Only sends were paced. Research ran as fast as the browser could load profiles. | Opening dozens of profiles in a minute is its own burst. | `check browse view` / `viewed`: a gap between page opens and a daily view cap. |
+| 16 | Paced sends landed on an exact rhythm. | A metronome doesn't look like a person. | Gaps vary by up to `jitter_minutes`, on top of the minimum gap and the forced breaks. |
+| 17 | Each session started cold, rebuilding state from a long log. | Slow, and things got missed. | `brief` shows budget, what's due, the pipeline and the next step on one screen. The plugin shows it at session start. |
+| 18 | Finding people was entirely manual. | That's where most of the time went. | `source hn` and `source github` pull fresh founder candidates from free public APIs into a CSV. |
+| 19 | Approving one message at a time slowed long sessions. | Approval fatigue leads to rubber-stamping. | `approval: batch` approves a numbered list of exact drafts up front, then sends them one at a time at the paced rate. |
+| 20 | Emails only worked with a Gmail connector. | It blocks anyone on Outlook, Apple Mail and so on. | `draft --eml` writes a standard draft any mail app opens. |
 
 ## Still not solved (be honest with the user)
-- **LinkedIn's terms.** Any software-assisted messaging is against LinkedIn's User Agreement. Human approval and human volume lower the risk but don't remove it.
 - **Email deliverability.** This kit doesn't warm up domains or check SPF, DKIM or DMARC. Send from a properly configured domain, start slowly, and watch bounces.
 - **Reply detection is manual.** You, or Claude reading your inbox during a session, log replies. Nothing listens in the background.
 - **Sourcing quality depends on judgment.** The rubric makes judgment explicit and checkable. It doesn't replace it.

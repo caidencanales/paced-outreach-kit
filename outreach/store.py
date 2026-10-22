@@ -18,6 +18,7 @@ create table if not exists events (
   id integer primary key, person_id integer not null references people(id), channel text not null,
   type text not null, at text not null, text text, template text);
 create table if not exists suppress (value text primary key, reason text, at text);
+create table if not exists views (at text not null, url text);
 """
 
 CHANNELS = ("linkedin", "email")
@@ -120,6 +121,15 @@ def log_event(c, pid, channel, kind, text="", template="", at=None):
             if v:
                 c.execute("insert or ignore into suppress values (?,?,?)", (v.lower(), "opted out", at))
     c.commit()
+
+
+def log_view(c, url, at=None):
+    c.execute("insert into views values (?,?)", ((at or dt.datetime.now()).isoformat(timespec="seconds"), norm_url(url)))
+    c.commit()
+
+
+def views(c):
+    return [dt.datetime.fromisoformat(r["at"]) for r in c.execute("select at from views order by at")]
 
 
 def events(c, pid=None):

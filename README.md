@@ -22,7 +22,7 @@ Any other outreach works too. The setup interview adapts it.
  Claude in Chrome ──► opens LinkedIn, types the note, stops at Send ──► you say yes ──► log (verified)
  email connector  ──► creates a draft ──► you send ──► log
                          │
-                     pace / check (daily + weekly caps, gaps, breaks, hours)   due (follow-ups)   report (what works)
+                     pace / check (caps, variable gaps, breaks, hours, research pace)   due   report (what works)
 ```
 
 ## Quick start (Windows, macOS or Linux)
@@ -30,7 +30,7 @@ Any other outreach works too. The setup interview adapts it.
 You need Python 3.10+, git, [Claude Code](https://claude.com/claude-code), and ideally the Claude in Chrome extension.
 
 ```bash
-git clone https://github.com/<you>/paced-outreach-kit.git
+git clone https://github.com/caidencanales/paced-outreach-kit.git
 cd paced-outreach-kit
 python -m unittest discover -s tests -t .
 python -m outreach init
@@ -38,22 +38,29 @@ python -m outreach init
 
 On macOS and Linux, use `python3` if `python` isn't found. On Windows, `py` works too.
 
-Then open the folder in Claude Code and paste the contents of [SETUP_PROMPT.md](SETUP_PROMPT.md). Or install the plugin and run `/outreach:setup`:
+Easiest: open Claude Code in an empty folder and paste [SETUP_PROMPT.md](SETUP_PROMPT.md). It clones this repo, installs the plugin and starts the interview.
 
+**The plugin is required.** It provides `/outreach:setup`, `/outreach:scout`, `/outreach:run` and `/outreach:review`, plus a brief at the start of every session in the kit folder:
+
+```bash
+claude plugin marketplace add caidencanales/paced-outreach-kit
+claude plugin install outreach@paced-outreach-kit
 ```
-/plugin marketplace add ./
-/plugin install outreach@paced-outreach-kit
-```
+
+(Or type `/plugin marketplace add caidencanales/paced-outreach-kit` and `/plugin install outreach@paced-outreach-kit` inside Claude Code.) Then restart Claude Code in the `paced-outreach-kit` folder and run `/outreach:setup`.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `python -m outreach init` | creates `config.json` and `data/` (both git-ignored) |
+| `brief` | one screen: budget left, what's due, pipeline, next step (also shown at session start) |
+| `source hn` / `source github` | free public founder discovery: Show HN launches and fast-growing new repos, written to a candidates CSV |
+| `viewed <url>` / `check browse view` | research pace: a gap between profile views and a daily view cap |
 | `add '<json>'` / `import file.csv` | adds people; refuses duplicates and do-not-contact entries |
 | `find <words>` / `show <ref>` / `list` | checks the log |
 | `score <ref> '<card>'` | weighted score; evidence URL required for every point |
-| `draft <ref> <template> detail="..."` | renders and lints a message; exits 1 on any FAIL |
+| `draft <ref> <template> detail="..." [--eml]` | renders and lints a message; exits 1 on any FAIL; `--eml` saves an email draft any mail app opens |
 | `pace` / `check <channel> <type>` | what's left today; whether you may send right now |
 | `log <ref> <channel> <type> "text" --template t` | records an event after you verified it happened |
 | `due` | accepted-but-unmessaged people and follow-ups due today |
@@ -65,13 +72,13 @@ Plugin commands: `/outreach:setup`, `/outreach:scout`, `/outreach:run`, `/outrea
 
 ## Rules
 
-Read [docs/RULES.md](docs/RULES.md). In short: a human sends or approves every message; the human handles sign-ins and CAPTCHAs; everything said is true and sourced; public emails only; opt-outs are permanent; human volume only. **LinkedIn's User Agreement prohibits automated messaging.** This kit keeps a human in the loop and the volume low, which reduces the risk but doesn't remove it.
+Read [docs/RULES.md](docs/RULES.md). In short: you approve every send; you handle sign-ins and CAPTCHAs; everything said is true and sourced; opt-outs are permanent; and it goes **slowly**. Sends and research are both rate-limited with variable gaps, so a session works like a careful person, not a script.
 
 [docs/CRITIQUE.md](docs/CRITIQUE.md) covers what went wrong in the system this was rebuilt from and how each problem is now handled in code.
 
 ## Privacy
 
-Your `config.json`, `data/` (the contact database) and `private/` (your spec, plan and notes) never leave your machine and are git-ignored. If you fork this publicly, keep it that way.
+Your `config.json`, `data/` (the contact database) and `private/` (your spec, plan and notes) are git-ignored, so they stay on your machine.
 
 ## License
 

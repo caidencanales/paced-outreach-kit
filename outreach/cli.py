@@ -1,6 +1,9 @@
 """python -m outreach <command>   (run with no command for help)
 
   init                                   create data/ and config.json (git-ignored)
+  brief                                  one-screen status: budget, what's due, pipeline counts, next steps
+  source hn|github [--days N] [--min-points N|--min-stars N] [--query Q] [--out file.csv]
+                                         find candidates from free public sources (see outreach/sources.py)
   add '<json>'                           new person; refuses duplicates and do-not-contact entries
   import <file.csv>                      bulk add (columns = person fields); duplicates are skipped with a reason
   find <words|url|email>                 already in the log?
@@ -8,8 +11,11 @@
   list [--status S] [--min-score N]      everyone, best score first
   score <ref> '<json card>'              evidence-backed score (see outreach/score.py)
   pace                                   what's left today and when the next send is allowed
-  draft <ref> <template> [key=value...]  render + lint a message; exit 1 if anything FAILs
-  check <channel> <type>                 may I send this kind of thing right now?
+  draft <ref> <template> [key=value...] [--eml]
+                                         render + lint a message; exit 1 if anything FAILs;
+                                         --eml also saves an email draft any mail app opens (private/drafts/)
+  check <channel> <type>                 may I send this right now? (check browse view = may I open the next page?)
+  viewed <url>                           record that you opened a profile or page (research pace)
   log <ref> <linkedin|email> <type> ["text"] [--template NAME]
                                          record an event AFTER verifying it really happened
   suppress <email|domain|url> [reason]   never contact again
@@ -24,7 +30,11 @@ import json
 import shutil
 import sys
 
-from . import config, pace, report, score, store, templates
+import datetime as dt
+from email.message import EmailMessage
+from pathlib import Path
+
+from . import config, pace, report, score, sources, store, templates
 
 
 def one(c, ref):
@@ -44,6 +54,11 @@ def opt(args, flag, default=None):
 
 
 def main(argv=None):
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in ("-h", "--help", "help"):
         print(__doc__)
@@ -57,9 +72,45 @@ def main(argv=None):
         store.connect(cfg)
         print(f"Database ready at {cfg['_data'] / 'outreach.db'}")
         return 0
+    if cmd == "source":
+        which = args[0] if args else ""
+        out = opt(args, "--out", f"private/candidates/{which}-{dt.date.today()}.csv")
+        days = int(opt(args, "--days", 14 if which == "hn" else 60))
+        if which == "hn":
+            rows = sources.hn(days, int(opt(args, "--min-points", 50)))
+        elif which == "github":
+            rows = sources.github(days, int(opt(args, "--min-stars", 300)), opt(args, "--query", ""))
+        else:
+            sys.exit("source must be hn or github")
+        path = sources.write(rows, cfg["_root"] / out)
+        print(f"{len(rows)} candidates -> {path}")
+        for r in rows[:15]:
+            print(f"  {r['signal']:<28} {r['handle'][:18]:<18} {r['project'][:60]}")
+        return 0
     c = store.connect(cfg)
 
-    if cmd == "add":
+    if cmd == "brief":
+        b = pace.budget(cfg, c)
+        counts = {}
+        for p in c.execute("select id from people"):
+            s_ = store.status(c, p["id"])
+            counts[s_] = counts.get(s_, 0) + 1
+        rows = report.due(cfg, c)
+        ready = c.execute("select count(*) from people where score >= ?",
+                          (cfg["scoring"]["min_score_to_contact"],)).fetchone()[0]
+        print(f"Budget: {b['linkedin_invites_today']} invites, {b['linkedin_messages_today']} LinkedIn messages, "
+              f"{b['emails_today']} emails left today. Next send at {b['next_action_at']}"
+              + ("" if b["in_business_hours"] else " (outside business hours)"))
+        print("Pipeline: " + (", ".join(f"{v} {k}" for k, v in sorted(counts.items())) or "empty"))
+        print(f"Due now: {len(rows)}")
+        for _, p, what in rows[:10]:
+            print(f"  #{p['id']} {p['name']}: {what}")
+        found = counts.get("found", 0)
+        nxt = ("handle what's due with /outreach:run" if rows else
+               "send to the best scored people with /outreach:run" if found and ready else
+               "find and score new people with /outreach:scout")
+        print("Next: " + nxt)
+    elif cmd == "add":
         try:
             pid = store.add_person(c, json.loads(args[0]))
         except ValueError as e:
@@ -111,11 +162,17 @@ def main(argv=None):
     elif cmd == "pace":
         for k, v in pace.budget(cfg, c).items():
             print(f"{k}: {v}")
+    elif cmd == "viewed":
+        store.log_view(c, args[0])
+        b = pace.budget(cfg, c)
+        print(f"Logged. {b['profile_views_today']} views left today; next page after {b['next_view_at']}.")
     elif cmd == "check":
-        ok, why = pace.can_send(cfg, c, args[0], args[1])
+        ok, why = pace.can_send(cfg, c, args[0], args[1], dt.datetime.now() if args[1] == "view" else None)
         print(("OK: " if ok else "WAIT: ") + why)
         return 0 if ok else 1
     elif cmd == "draft":
+        eml = "--eml" in args
+        args = [a for a in args if a != "--eml"]
         p = one(c, args[0])
         extra = dict(a.split("=", 1) for a in args[2:])
         if store.is_suppressed(c, p["email"], store.norm_url(p["linkedin_url"]), p["company_domain"]):
@@ -136,6 +193,17 @@ def main(argv=None):
         if any(level == "FAIL" for level, _ in issues):
             return 1
         print("PASS")
+        if eml:
+            if not p["email"]:
+                sys.exit("No email on file for this person.")
+            m = EmailMessage()
+            m["To"], m["Subject"], m["X-Unsent"] = p["email"], subject, "1"
+            m.set_content(text)
+            d = cfg["_root"] / "private" / "drafts"
+            d.mkdir(parents=True, exist_ok=True)
+            path = d / f"{p['id']}-{meta['name']}.eml"
+            path.write_bytes(bytes(m))
+            print(f"Draft saved: {path} (double-click to open it in your mail app, review, send)")
     elif cmd == "log":
         tmpl = opt(args, "--template", "")
         p = one(c, args[0])

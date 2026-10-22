@@ -10,6 +10,8 @@ Defaults (the interview replaces them):
 - **Red flags:** no real product, claims you can't verify anywhere, engagement-bait content with no substance, prior conduct issues in reputable press, and anyone the spec puts off-limits.
 
 ## 2. Where to look (public sources; confirm which ones in setup)
+**Built in:** `python -m outreach source hn` (recent Show HN launches with real traction) and `python -m outreach source github` (fast-growing new repos; add `--query "topic:ai"` or similar). Both write a candidates CSV. Research each candidate slowly: `check browse view` before each page, `viewed <url>` after it.
+
 - **Launches:** Product Hunt (daily top), Hacker News "Show HN", GitHub trending and fast-growing repos, App Store or Play "new and rising" in your category.
 - **Selection signals:** accelerator batches and demo days (public company directories), fellowships, university venture programs, pitch competition winners.
 - **Build-in-public founders:** X/Twitter, LinkedIn posts, YouTube, TikTok, Instagram and Substack founders who share metrics or progress.

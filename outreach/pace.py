@@ -1,6 +1,7 @@
 """Human-paced sending budget. These caps keep volume at what one busy person does by hand.
 
-They are not a way to hide automation. The person approves every send; this module just refuses bursts.
+Two speeds are limited: sends (invites, messages, emails) and research (opening profiles and pages). Gaps between sends
+vary by a few minutes so the day doesn't run on a metronome. The person approves every send; this module refuses bursts.
 """
 import datetime as dt
 
@@ -33,7 +34,8 @@ def budget(cfg, c, at=None):
     stamps = sorted(dt.datetime.fromisoformat(e["at"]) for e in out)
     nxt = at
     if stamps:
-        nxt = max(nxt, stamps[-1] + dt.timedelta(minutes=p["min_gap_minutes"]))
+        jitter = int(stamps[-1].timestamp() // 60) % (p.get("jitter_minutes", 0) + 1)
+        nxt = max(nxt, stamps[-1] + dt.timedelta(minutes=p["min_gap_minutes"] + jitter))
         streak = 1
         for a, b in zip(reversed(stamps[:-1]), reversed(stamps[1:])):
             if (b - a) >= dt.timedelta(minutes=p["break_minutes"]):
@@ -43,12 +45,23 @@ def budget(cfg, c, at=None):
             nxt = max(nxt, stamps[-1] + dt.timedelta(minutes=p["break_minutes"]))
     start, end = p["business_hours"]
     in_hours = start <= at.hour < end and (at.weekday() < 5 or not p["weekdays_only"])
-    return {**left, "next_action_at": nxt.strftime("%Y-%m-%d %H:%M"), "in_business_hours": in_hours}
+    seen = [v for v in store.views(c) if v.date() == today]
+    next_view = seen[-1] + dt.timedelta(seconds=p.get("view_gap_seconds", 0)) if seen else at
+    return {**left, "profile_views_today": max(0, p.get("profile_views_day", 10 ** 6) - len(seen)),
+            "next_action_at": nxt.strftime("%Y-%m-%d %H:%M"), "next_view_at": max(next_view, at).strftime("%H:%M:%S"),
+            "in_business_hours": in_hours}
 
 
 def can_send(cfg, c, channel, kind, at=None):
     at = at or store.now()
     b = budget(cfg, c, at)
+    if kind == "view":
+        if b["profile_views_today"] <= 0:
+            return False, "profile views for today are used up; stop researching and come back tomorrow"
+        nv = dt.datetime.combine(at.date(), dt.time.fromisoformat(b["next_view_at"]))
+        if at < nv:
+            return False, f"slow down; open the next page after {b['next_view_at']} (read this one properly first)"
+        return True, "ok"
     key = {"invite": "linkedin_invites_today", "message": "linkedin_messages_today", "email": "emails_today"}[
         _bucket(channel, kind)]
     if b[key] <= 0:

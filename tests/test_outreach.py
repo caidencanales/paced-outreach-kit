@@ -6,7 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from outreach import config, pace, report, score, store, templates
+import contextlib
+import io
+
+from outreach import cli, config, pace, report, score, sources, store, templates
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -63,12 +66,23 @@ class PaceTests(Base):
         self.assertTrue(pace.can_send(self.cfg, self.c, "linkedin", "invite", t)[0])
         store.log_event(self.c, self.pid, "linkedin", "invite", at=t)
         self.assertFalse(pace.can_send(self.cfg, self.c, "linkedin", "invite", t + dt.timedelta(minutes=1))[0])
-        self.assertTrue(pace.can_send(self.cfg, self.c, "linkedin", "invite", t + dt.timedelta(minutes=3))[0])
+        p = self.cfg["pace"]
+        earliest = dt.datetime.fromisoformat(pace.budget(self.cfg, self.c, t)["next_action_at"])
+        self.assertTrue(t + dt.timedelta(minutes=p["min_gap_minutes"]) <= earliest
+                        <= t + dt.timedelta(minutes=p["min_gap_minutes"] + p["jitter_minutes"]))
+        self.assertTrue(pace.can_send(self.cfg, self.c, "linkedin", "invite", earliest)[0])
         for i in range(1, 5):
             store.log_event(self.c, self.pid, "linkedin", "invite", at=t + dt.timedelta(minutes=4 * i))
         ok, why = pace.can_send(self.cfg, self.c, "linkedin", "invite", t + dt.timedelta(minutes=20))
         self.assertFalse(ok, "5 sends in a row should force a break")
         self.assertTrue(pace.can_send(self.cfg, self.c, "linkedin", "invite", t + dt.timedelta(minutes=40))[0])
+
+    def test_research_pace(self):
+        t = dt.datetime(2030, 1, 7, 10, 0, 0)
+        self.assertTrue(pace.can_send(self.cfg, self.c, "browse", "view", t)[0])
+        store.log_view(self.c, "https://linkedin.com/in/someone", t)
+        self.assertFalse(pace.can_send(self.cfg, self.c, "browse", "view", t + dt.timedelta(seconds=10))[0])
+        self.assertTrue(pace.can_send(self.cfg, self.c, "browse", "view", t + dt.timedelta(seconds=46))[0])
 
     def test_weekend_and_daily_cap(self):
         sat = dt.datetime(2030, 1, 12, 10, 0)
@@ -139,6 +153,42 @@ class ScoreAndReportTests(Base):
         self.assertIn("follow-up 1", report.due(self.cfg, self.c)[0][2])
         store.log_event(self.c, self.pid, "linkedin", "reply")
         self.assertEqual(report.due(self.cfg, self.c), [])
+
+
+class SourceAndCliTests(Base):
+    def test_parse_hn_filters_and_builds_evidence(self):
+        data = {"hits": [{"title": "Show HN: Tiny DB", "author": "maya", "points": 120, "num_comments": 30,
+                          "objectID": "42", "url": "https://tinydb.dev", "created_at": "2030-01-02T00:00:00Z"},
+                         {"title": "Show HN: Meh", "author": "x", "points": 3, "objectID": "1"}]}
+        rows = sources.parse_hn(data, 50)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["project"], "Tiny DB")
+        self.assertEqual(rows[0]["evidence"], "https://news.ycombinator.com/item?id=42")
+
+    def test_parse_github(self):
+        data = {"items": [{"full_name": "acme/rocket", "html_url": "https://github.com/acme/rocket",
+                           "stargazers_count": 900, "owner": {"login": "acme", "type": "Organization"},
+                           "created_at": "2030-01-01T00:00:00Z", "description": "fast", "homepage": None}]}
+        rows = sources.parse_github(data)
+        self.assertEqual(rows[0]["handle"], "acme")
+        self.assertIn("900 stars", rows[0]["signal"])
+
+    def run_cli(self, *argv):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = cli.main(list(argv))
+        return code, buf.getvalue()
+
+    def test_brief_and_eml_draft(self):
+        code, out = self.run_cli("brief")
+        self.assertEqual(code, 0)
+        self.assertIn("Next:", out)
+        code, out = self.run_cli("draft", str(self.pid), "email_first", "detail=Saw the offline editor launch this week.",
+                                 "--eml")
+        self.assertEqual(code, 0, out)
+        emls = list((self.tmp / "private" / "drafts").glob("*.eml"))
+        self.assertEqual(len(emls), 1)
+        self.assertIn("To: ada@example.com", emls[0].read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
