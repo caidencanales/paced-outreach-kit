@@ -1,0 +1,11 @@
+{
+  "name": "paced-outreach-kit",
+  "owner": { "name": "paced-outreach-kit contributors" },
+  "plugins": [
+    {
+      "name": "outreach",
+      "source": "./plugins/outreach",
+      "description": "Human-paced, evidence-backed LinkedIn + email outreach: setup interview, founder scouting, paced send sessions, weekly review."
+    }
+  ]
+}

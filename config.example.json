@@ -1,0 +1,82 @@
+{
+  "_comment": "Copy to config.json (git-ignored) and edit. The setup prompt fills this in from your interview answers.",
+  "sender": {
+    "name": "Your Name",
+    "role": "What you do, in a few words",
+    "organization": "Your program, fund or company",
+    "program_name": "Your program (e.g. the thing founders apply to)",
+    "program_one_liner": "One sentence on what your program gives founders, in plain words.",
+    "apply_url": "https://example.com/apply",
+    "postal_address": "Required in commercial email footers in the US (CAN-SPAM). A PO box is fine.",
+    "timezone": "America/New_York",
+    "email_footer": "{sender_name} | {organization} | {postal_address}\nNot a fit? Reply \"no thanks\" and I won't email you again."
+  },
+  "data_dir": "data",
+  "pace": {
+    "linkedin_invite_day": 15,
+    "linkedin_invite_week": 60,
+    "linkedin_note_month": 60,
+    "linkedin_message_day": 20,
+    "email_day": 25,
+    "min_gap_minutes": 3,
+    "break_every": 5,
+    "break_minutes": 20,
+    "business_hours": [
+      9,
+      17
+    ],
+    "weekdays_only": true
+  },
+  "followups": {
+    "linkedin_after_accept_days": 2,
+    "message_no_reply_business_days": 5,
+    "email_no_reply_business_days": 4,
+    "max_followups": 2
+  },
+  "limits": {
+    "linkedin_note": 200,
+    "linkedin_note_hard": 300,
+    "linkedin_message": 600,
+    "email_subject": 60,
+    "email_body_words": 150
+  },
+  "lint": {
+    "banned_phrases": [
+      "i hope this finds you well",
+      "i hope this email finds you well",
+      "i'm reaching out",
+      "i am reaching out",
+      "quick question",
+      "touch base",
+      "circle back",
+      "synergy",
+      "leverage",
+      "passionate about",
+      "game-changer",
+      "disrupt",
+      "delve"
+    ],
+    "allow_emoji": false,
+    "max_exclamations": 1,
+    "duplicate_similarity": 0.85,
+    "min_detail_chars": 15
+  },
+  "scoring": {
+    "_comment": "Each signal is scored 0-5 with an evidence URL. Weights are relative. The interview tunes these.",
+    "signals": {
+      "founder_track_record": 3,
+      "technical_or_domain_depth": 3,
+      "traction": 3,
+      "velocity": 2,
+      "market_size": 2,
+      "backing_or_selection": 1,
+      "social_audience": 2,
+      "social_consistency": 1
+    },
+    "social_signals": [
+      "social_audience",
+      "social_consistency"
+    ],
+    "min_score_to_contact": 60
+  }
+}
